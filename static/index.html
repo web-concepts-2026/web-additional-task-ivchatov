@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Socket HTTP Server</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <h1>Hello from a raw-socket HTTP server 👋</h1>
+  <p>This page and its CSS are served as static files by <code>server.py</code>, which uses only Python's <code>socket</code> module.</p>
+
+  <h2>GET with query parameters</h2>
+  <ul>
+    <li><a href="/page?id=5">/page?id=5</a></li>
+    <li><a href="/page?id=42&amp;name=Ivan&amp;tag=a&amp;tag=b">/page?id=42&amp;name=Ivan&amp;tag=a&amp;tag=b</a></li>
+    <li><a href="/headers?debug=1">/headers</a> — shows parsed method, path, query and headers as JSON</li>
+  </ul>
+
+  <h2>POST with a JSON body</h2>
+  <form id="msg-form">
+    <input name="name" placeholder="Your name" required>
+    <input name="text" placeholder="Message" required>
+    <button type="submit">Send</button>
+  </form>
+  <pre id="result">Response will appear here…</pre>
+</main>
+
+<script>
+  document.getElementById("msg-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const res = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.fromEntries(form)),
+    });
+    document.getElementById("result").textContent =
+      `${res.status} ${res.statusText}\n\n` + await res.text();
+  });
+</script>
+</body>
+</html>
