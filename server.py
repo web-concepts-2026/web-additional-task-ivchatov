@@ -1,14 +1,4 @@
-"""
-Basic HTTP/1.1 server built only on top of the `socket` standard library module.
-No web frameworks or HTTP libraries (http.server, urllib.request, etc.) are used.
-
-Features:
-  * listens on a TCP port and accepts connections (one thread per connection)
-  * parses the request line (method, path, version), headers, query parameters and body
-  * GET  -> serves static files from ./static and handles query parameters
-  * POST -> parses the request body (application/json and form-urlencoded)
-
-Run:
+""" Run:
     python3 server.py            # listens on 0.0.0.0:8080
     python3 server.py 9000       # custom port
 """
@@ -50,14 +40,9 @@ CONTENT_TYPES = {
     ".ico": "image/x-icon",
 }
 
-# In-memory storage for POST /api/messages
 MESSAGES = []
 MESSAGES_LOCK = threading.Lock()
 
-
-# --------------------------------------------------------------------------- #
-#  Parsing helpers
-# --------------------------------------------------------------------------- #
 
 def url_decode(s):
     """Decode %XX escapes and '+' (as space) — a small replacement for urllib.parse.unquote_plus."""
@@ -102,10 +87,10 @@ def parse_query(query_string):
 class HTTPRequest:
     def __init__(self, method, target, version, headers, body):
         self.method = method
-        self.target = target          # raw target, e.g. /page?id=5
+        self.target = target        
         self.version = version
-        self.headers = headers        # dict with lower-cased keys
-        self.body = body              # raw bytes
+        self.headers = headers       
+        self.body = body             
 
         path, _, query = target.partition("?")
         self.path = url_decode(path)
@@ -126,7 +111,7 @@ class BadRequest(Exception):
 def read_request(conn):
     """Read one full HTTP request from the socket and return an HTTPRequest (or None if closed)."""
     data = b""
-    # 1) read until the end of the headers (\r\n\r\n)
+ 
     while b"\r\n\r\n" not in data:
         chunk = conn.recv(RECV_SIZE)
         if not chunk:
@@ -140,7 +125,7 @@ def read_request(conn):
     head, _, rest = data.partition(b"\r\n\r\n")
     lines = head.decode("iso-8859-1").split("\r\n")
 
-    # 2) request line: METHOD SP TARGET SP VERSION
+ 
     parts = lines[0].split(" ")
     if len(parts) != 3:
         raise BadRequest(f"Malformed request line: {lines[0]!r}")
@@ -148,7 +133,7 @@ def read_request(conn):
     if not version.startswith("HTTP/"):
         raise BadRequest("Invalid HTTP version")
 
-    # 3) headers: "Name: value"
+  
     headers = {}
     for line in lines[1:]:
         if not line:
@@ -158,10 +143,10 @@ def read_request(conn):
         name, _, value = line.partition(":")
         name = name.strip().lower()
         value = value.strip()
-        # repeated headers are joined with a comma (RFC 9110, 5.3)
+ 
         headers[name] = f"{headers[name]}, {value}" if name in headers else value
 
-    # 4) body: read exactly Content-Length bytes
+ 
     body = rest
     length_header = headers.get("content-length")
     if length_header is not None:
@@ -181,9 +166,7 @@ def read_request(conn):
     return HTTPRequest(method.upper(), target, version, headers, body)
 
 
-# --------------------------------------------------------------------------- #
-#  Response helpers
-# --------------------------------------------------------------------------- #
+
 
 def build_response(status, body=b"", content_type="text/plain; charset=utf-8", extra_headers=None):
     if isinstance(body, str):
@@ -212,14 +195,12 @@ def html_escape(s):
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
-# --------------------------------------------------------------------------- #
-#  Route handlers
-# --------------------------------------------------------------------------- #
+
 
 def serve_static(req):
     rel = req.path.lstrip("/") or "index.html"
     full = os.path.realpath(os.path.join(STATIC_DIR, rel))
-    # protect against path traversal: /../../etc/passwd
+
     if not full.startswith(os.path.realpath(STATIC_DIR) + os.sep):
         return build_response(403, "403 Forbidden")
     if os.path.isdir(full):
@@ -321,10 +302,10 @@ def dispatch(req):
         return handler(req)
     if req.method in ("GET", "HEAD"):
         resp = serve_static(req)
-        if req.method == "HEAD":                       # same headers, no body
+        if req.method == "HEAD":                     
             resp = resp.split(b"\r\n\r\n", 1)[0] + b"\r\n\r\n"
         return resp
-    # path exists for another method -> 405, otherwise 404
+
     allowed = sorted(m for (m, p) in ROUTES if p == req.path)
     if allowed:
         return build_response(405, "405 Method Not Allowed",
@@ -332,9 +313,7 @@ def dispatch(req):
     return json_response(404, {"error": f"No route for {req.method} {req.path}"})
 
 
-# --------------------------------------------------------------------------- #
-#  Server loop
-# --------------------------------------------------------------------------- #
+
 
 def handle_client(conn, addr):
     with conn:
@@ -351,7 +330,7 @@ def handle_client(conn, addr):
             print(f"[{datetime.now():%H:%M:%S}] {addr[0]} bad request: {e}")
         except socket.timeout:
             return
-        except Exception as e:  # never let one request kill the server
+        except Exception as e: 
             response = build_response(500, "500 Internal Server Error")
             print(f"[{datetime.now():%H:%M:%S}] {addr[0]} error: {e!r}")
         try:
